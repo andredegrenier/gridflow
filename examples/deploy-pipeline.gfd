@@ -1,0 +1,43 @@
+// Deploy pipeline — gridflow reference example
+dir: TB
+
+// variables — dynamically typed, single-assignment
+warn = #ff6b35
+hot  = [rounded, fill=$warn]
+
+// classes — single-node archetypes with params and ports
+class Svc(name, color=#eef2f7) {
+  shape = [rounded]
+  label = $name
+  fill  = $color
+  port in  left
+  port out right
+}
+
+node commit "Push to main"
+node ci     "CI: build + test" [rounded]
+gate "Tests pass?" [diamond] @ (320, 260)
+fix$hot "Fix the build" right-of gate gap 80
+
+commit -> ci
+ci -> gate
+gate -> fix : "no" [dashed]
+fix ..> ci  : "retry"
+
+auth = Svc("Auth")
+pay  = Svc("Payments", #ffe0b2) below auth gap 60
+auth.out -> pay.in : "invoices"
+gate -> auth : "yes"
+
+group deploy "Deployment" @ (200, 520) {
+  dir: LR
+  node stage "Deploy to staging"
+  node smoke "Smoke tests" [rounded] right-of stage gap 60
+  node prod  "Deploy to prod" [bold]
+  stage -> smoke
+  smoke -> prod : "green"
+}
+
+gate -> stage : "ship it"
+prod -> done
+node done "Announce in Slack" [ellipse] below prod gap 50

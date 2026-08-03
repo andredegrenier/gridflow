@@ -1,0 +1,46 @@
+// gridflow starter library: cloud/AWS-flavored blocks
+// Import with:  use aws
+
+awsorange = #ff9900
+awsdark   = #232f3e
+
+class Service(name, color=#eef2f7) {
+  shape = [rounded]
+  label = $name
+  fill  = $color
+  port in  left
+  port out right
+}
+
+class Lambda(name) {
+  shape = [rounded, fill=#fff3e0, stroke=$awsorange]
+  label = "λ $name"
+  port trigger left
+  port out     right
+}
+
+class Queue(name) {
+  shape = [stadium, fill=#fce4ec]
+  label = $name
+  port in  left
+  port out right
+}
+
+class Db(name) {
+  shape = [cylinder, fill=#e8eaf6]
+  label = $name
+  port write top
+  port read  bottom
+}
+
+class Bucket(name) {
+  shape = [card, fill=#e8f5e9]
+  label = $name
+}
+
+class Gateway(name) {
+  shape = [hexagon, fill=#e0f2f1]
+  label = $name
+  port pub  left
+  port priv right
+}

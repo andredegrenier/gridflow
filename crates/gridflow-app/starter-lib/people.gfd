@@ -1,0 +1,16 @@
+// gridflow starter library: org charts & people
+// Import with:  use people
+
+class Person(name, role="") {
+  shape = [rounded, fill=#e3f2fd]
+  label = "$name\n$role"
+  port head top
+  port feet bottom
+}
+
+class Team(name) {
+  shape = [stadium, fill=#ede7f6, bold]
+  label = $name
+  port lead top
+  port members bottom
+}

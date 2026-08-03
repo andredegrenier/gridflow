@@ -1,0 +1,26 @@
+// Every gridflow shape + the newer syntax, in one file.
+dir: LR
+default node [fill=#f4f6fa]
+
+a "rect"          [rect]          @ (0, 0)
+b "rounded"       [rounded]       right-of a gap 40
+c "stadium"       [stadium]       right-of b gap 40
+d "circle"        [circle]        below a gap 70
+e "ellipse"       [ellipse]       right-of d gap 40
+f "diamond"       [diamond]       right-of e gap 40
+g "hexagon"       [hexagon]       below d gap 70
+h "parallelogram" [para]          right-of g gap 40
+i "trapezoid"     [trapezoid]     right-of h gap 40
+j "database"      [db]            below g gap 70
+k "card"          [card]          right-of j gap 40
+
+// chains + reversed + dotted arrows, edge defaults
+default edge [stroke=#8a94a6]
+a -> b -> c : "chain"
+d <- e : "reversed"
+g <.. h : "dotted back"
+
+// text color + bundles
+accent = #ff6b35
+hot = [bold, stroke=$accent, text=$accent]
+loud$hot "styled via bundle" [rounded] below j gap 70

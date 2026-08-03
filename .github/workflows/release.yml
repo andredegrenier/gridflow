@@ -1,0 +1,55 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: gridflow.exe
+            asset: gridflow-windows-x86_64.zip
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: gridflow
+            asset: gridflow-macos-arm64.zip
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: gridflow
+            asset: gridflow-macos-x86_64.zip
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release -p gridflow-app --target ${{ matrix.target }}
+      - name: Package (zip)
+        shell: bash
+        run: |
+          mkdir dist
+          cp "target/${{ matrix.target }}/release/${{ matrix.artifact }}" dist/
+          cp README.md dist/
+          cp -r docs dist/docs
+          cp -r examples dist/examples
+          cd dist
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            7z a "../${{ matrix.asset }}" .
+          else
+            zip -r "../${{ matrix.asset }}" .
+          fi
+      - name: Attach to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.asset }}
+          generate_release_notes: true

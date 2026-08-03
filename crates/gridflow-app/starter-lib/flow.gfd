@@ -1,0 +1,51 @@
+// gridflow starter library: flowchart building blocks
+// Import with:  use flow
+
+// --- palette --------------------------------------------------------------
+ink     = #1a2028
+paper   = #f4f6fa
+blue    = #e3f2fd
+green   = #e8f5e9
+amber   = #fff3e0
+red     = #ffebee
+violet  = #ede7f6
+
+// --- style bundles (apply with node$bundle) --------------------------------
+primary = [rounded, fill=$blue]
+success = [rounded, fill=$green]
+warning = [rounded, fill=$amber]
+danger  = [rounded, fill=$red, stroke=#c62828]
+muted   = [rounded, fill=#f0f1f3, text=#7a828c]
+
+// --- classes ----------------------------------------------------------------
+class Process(name, color=$paper) {
+  shape = [rounded]
+  label = $name
+  fill  = $color
+  port in  left
+  port out right
+}
+
+class Decision(question) {
+  shape = [diamond, fill=$amber]
+  label = $question
+  port yes bottom
+  port no  right
+}
+
+class Terminal(name) {
+  shape = [stadium, fill=$green]
+  label = $name
+}
+
+class Data(name) {
+  shape = [parallelogram, fill=$blue]
+  label = $name
+}
+
+class Store(name) {
+  shape = [cylinder, fill=$violet]
+  label = $name
+  port in  top
+  port out bottom
+}
