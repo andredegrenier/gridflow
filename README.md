@@ -12,10 +12,17 @@ built around explicit layout — born from three mermaid frustrations:
   dragging a node writes `@ (x, y)` back into the source text surgically.
   One undo history covers both text and canvas.
 
-Plus: 11 shapes, variables, parameterized classes with ports, a global +
-project-local class library, a markdown notes pane, SVG/PNG export, and full
-in-app documentation (`⌘/`). The text file is the only file format — perfect
-for git.
+Plus: 17 shapes, named icons, variables, parameterized classes with ports, a
+global + project-local class library, a markdown notes pane, seven switchable
+themes, themed SVG/PNG export, and full in-app documentation (`⌘/`). The text
+file is the only file format — perfect for git.
+
+**New in v0.2 — write mermaid, get the gridflow experience.** The editor
+detects mermaid flowcharts (`flowchart`/`graph` headers, `.mmd` files) and
+renders them natively through the same pipeline: crisp pan/zoom canvas,
+layered layout in all four directions, live theme switching, SVG/PNG export,
+jump-to-source. One command (File → Convert Mermaid → GFD, undoable) rewrites
+a mermaid document as GFD when you want drag-to-pin, variables and classes.
 
 ```gfd
 use flow
@@ -62,22 +69,26 @@ Press **⌘/** in the app (Help → Documentation), or read the same book in
 9. [Cookbook](docs/09-cookbook.md)
 10. [Architecture](docs/10-architecture.md)
 11. [FAQ](docs/11-faq.md)
+12. [Mermaid](docs/12-mermaid.md)
 
 ## Language at a glance
 
 | Feature | Syntax |
 |---|---|
-| Nodes | `id "Label" [rounded, fill=#e3f2fd]` |
-| Shapes | `rect rounded stadium circle ellipse diamond hexagon parallelogram trapezoid cylinder card` (aliases: `db`, `para`) |
-| Edges | `a -> b : "label" [dashed]` · also `<-`, `<->`, `--`, `..>`, `<..` and chains `a -> b -> c` |
+| Nodes | `id "Label" [rounded, fill=#e3f2fd, icon=gear]` |
+| Shapes | `rect rounded stadium circle ellipse diamond hexagon parallelogram trapezoid cylinder card subroutine dblcircle octagon triangle note tag` (aliases: `db`, `para`, `pill`, `hex`, `rhombus`, `oval`, `io`, `stop`, …) |
+| Icons | `icon=lock` (58 named glyphs) or `icon="⚙"` (any literal) |
+| Edges | `a -> b : "label" [dashed]` · also `<-`, `<->`, `--`, `..>`, `<..`, chains `a -> b -> c`, and `-->`/`<--`/`<-->` aliases |
+| Direction | `dir: TB` (`TD`) · `LR` · `BT` · `RL` |
 | Pin | `@ (x, y)` — written automatically when you drag |
 | Relative | `right-of X gap 40`, `left-of`, `above`, `below` |
 | Variables | `warn = #ff6b35` · bundles `hot = [rounded, fill=$warn]` · apply `n$hot` · interpolate `"$env api"` |
 | Defaults | `default node [rounded]` · `default edge [dashed]` |
-| Classes | `class Svc(name, color=#eee) { label = $name; port out right }` → `s = Svc("API")` → `s.out -> t` |
+| Classes | `class Svc(name, color=#eee) { label = $name; icon = "gear"; port out right }` → `s = Svc("API")` → `s.out -> t` |
 | Groups | `group g "Title" { dir: LR ... }` |
 | Libraries | `use flow, aws` (global) · `use "./styles.gfd"` (project-local) |
 | Comments | `//` (`#` is reserved for colors) |
+| Mermaid | paste a `flowchart`/`graph` — rendered natively; `.mmd` files open directly |
 
 ## Keyboard
 
@@ -88,12 +99,15 @@ Press **⌘/** in the app (Help → Documentation), or read the same book in
 ## Architecture
 
 ```
-crates/gridflow-core   parser (byte spans, per-statement recovery), resolver,
-                       layered layout with pinned constraints, unified op-based
-                       document + undo, drag→text rewrite engine, SVG export.
-                       No GUI dependencies; 31 tests incl. property tests.
-crates/gridflow-app    eframe/egui shell: canvas, highlighting editor, notes,
-                       library browser, docs viewer, PNG export (resvg).
+crates/gridflow-core   GFD parser + mermaid flowchart parser (both produce the
+                       same DiagramModel; byte spans, per-statement recovery),
+                       resolver, layered layout with pinned constraints,
+                       unified op-based document + undo, drag→text rewrite
+                       engine, mermaid→GFD converter, SVG export.
+                       No GUI dependencies; 50 tests incl. property tests.
+crates/gridflow-app    eframe/egui shell: canvas, per-language highlighting
+                       editor, theme presets, notes, library browser, docs
+                       viewer, PNG export (resvg).
 ```
 
 Every mutation is a serializable `Op` through a single code path — the

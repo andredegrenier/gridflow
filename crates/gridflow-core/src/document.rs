@@ -4,14 +4,25 @@
 //! than a rearchitecture.
 
 use crate::library::LibraryProvider;
+use crate::mermaid;
 use crate::model::DiagramModel;
 use crate::ops::{Intent, Op, TextEdit};
 use crate::parser::parse;
 use crate::resolve::resolve;
 
+/// Which language the document text is written in. Detected from the text on
+/// every reparse, so pasting mermaid into an empty document just works — and
+/// both languages get the same canvas, layout, themes and export.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Language {
+    Gfd,
+    Mermaid,
+}
+
 pub struct Document {
     text: String,
     model: DiagramModel,
+    language: Language,
     library: Box<dyn LibraryProvider>,
     undo: Vec<UndoEntry>,
     redo: Vec<UndoEntry>,
@@ -41,10 +52,11 @@ pub enum ApplyResult {
 
 impl Document {
     pub fn new(text: String, library: Box<dyn LibraryProvider>) -> Self {
-        let model = resolve(&parse(&text), library.as_ref());
+        let (language, model) = parse_any(&text, library.as_ref());
         Document {
             text,
             model,
+            language,
             library,
             undo: Vec::new(),
             redo: Vec::new(),
@@ -56,6 +68,10 @@ impl Document {
 
     pub fn text(&self) -> &str {
         &self.text
+    }
+
+    pub fn language(&self) -> Language {
+        self.language
     }
 
     pub fn model(&self) -> &DiagramModel {
@@ -148,7 +164,9 @@ impl Document {
     }
 
     fn commit(&mut self) {
-        self.model = resolve(&parse(&self.text), self.library.as_ref());
+        let (language, model) = parse_any(&self.text, self.library.as_ref());
+        self.language = language;
+        self.model = model;
         self.version += 1;
     }
 
@@ -183,6 +201,17 @@ impl Document {
             inverse.push(TextEdit::new(e.start, e.start + e.insert.len(), old));
         }
         Some((sorted.into_iter().cloned().collect(), inverse))
+    }
+}
+
+/// Detect the language and parse with the matching front end. Both produce
+/// the same `DiagramModel`, which is why every downstream feature (layout,
+/// canvas, themes, export) works for both.
+fn parse_any(text: &str, library: &dyn LibraryProvider) -> (Language, DiagramModel) {
+    if mermaid::is_mermaid(text) {
+        (Language::Mermaid, mermaid::parse(text))
+    } else {
+        (Language::Gfd, resolve(&parse(text), library))
     }
 }
 
@@ -228,5 +257,18 @@ mod tests {
         assert!(d.model().nodes.contains_key("a"));
         assert!(d.model().nodes.contains_key("c"));
         assert!(!d.model().diagnostics.is_empty());
+    }
+
+    #[test]
+    fn language_switches_live_with_edits() {
+        let mut d = doc("node a\n");
+        assert_eq!(d.language(), Language::Gfd);
+        let len = d.text().len();
+        d.apply(typing(vec![TextEdit::new(0, len, "flowchart LR\nx --> y\n")]));
+        assert_eq!(d.language(), Language::Mermaid);
+        assert!(d.model().nodes.contains_key("x"));
+        d.undo();
+        assert_eq!(d.language(), Language::Gfd);
+        assert!(d.model().nodes.contains_key("a"));
     }
 }

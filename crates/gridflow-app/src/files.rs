@@ -48,7 +48,9 @@ pub fn save_document(doc: &mut Document, path: &Path) -> std::io::Result<()> {
 
 pub fn pick_open() -> Option<PathBuf> {
     rfd::FileDialog::new()
+        .add_filter("diagrams", &["gfd", "mmd", "mermaid"])
         .add_filter("gridflow diagram", &["gfd"])
+        .add_filter("mermaid diagram", &["mmd", "mermaid"])
         .pick_file()
 }
 

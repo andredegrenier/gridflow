@@ -61,6 +61,18 @@ pub enum Shape {
     Cylinder,
     /// Rect with a cut top-left corner.
     Card,
+    /// Rect with doubled vertical edges (mermaid's `[[x]]`).
+    Subroutine,
+    /// Concentric circles (state-machine accept state, mermaid's `(((x)))`).
+    DblCircle,
+    /// Stop sign.
+    Octagon,
+    /// Point-up triangle.
+    Triangle,
+    /// Rect with a folded top-right corner (sticky note).
+    Note,
+    /// Rect with a pointed right end (label/tag).
+    Tag,
 }
 
 impl Shape {
@@ -76,17 +88,49 @@ impl Shape {
         (Shape::Trapezoid, "trapezoid"),
         (Shape::Cylinder, "cylinder"),
         (Shape::Card, "card"),
+        (Shape::Subroutine, "subroutine"),
+        (Shape::DblCircle, "dblcircle"),
+        (Shape::Octagon, "octagon"),
+        (Shape::Triangle, "triangle"),
+        (Shape::Note, "note"),
+        (Shape::Tag, "tag"),
+    ];
+
+    /// Ergonomic / mermaid-flavored aliases accepted anywhere a shape keyword is.
+    pub const ALIASES: &'static [(&'static str, Shape)] = &[
+        ("db", Shape::Cylinder),
+        ("database", Shape::Cylinder),
+        ("para", Shape::Parallelogram),
+        ("io", Shape::Parallelogram),
+        ("pill", Shape::Stadium),
+        ("rhombus", Shape::Diamond),
+        ("decision", Shape::Diamond),
+        ("hex", Shape::Hexagon),
+        ("oval", Shape::Ellipse),
+        ("stop", Shape::Octagon),
+        ("sub", Shape::Subroutine),
     ];
 
     pub fn from_keyword(word: &str) -> Option<Shape> {
-        match word {
-            "db" => Some(Shape::Cylinder), // ergonomic alias
-            "para" => Some(Shape::Parallelogram),
-            _ => Self::ALL
-                .iter()
-                .find(|(_, kw)| *kw == word)
-                .map(|(s, _)| *s),
-        }
+        Self::ALIASES
+            .iter()
+            .find(|(kw, _)| *kw == word)
+            .map(|(_, s)| *s)
+            .or_else(|| {
+                Self::ALL
+                    .iter()
+                    .find(|(_, kw)| *kw == word)
+                    .map(|(s, _)| *s)
+            })
+    }
+
+    /// Canonical keyword (the one docs and the GFD generator emit).
+    pub fn keyword(self) -> &'static str {
+        Self::ALL
+            .iter()
+            .find(|(s, _)| *s == self)
+            .map(|(_, kw)| *kw)
+            .unwrap_or("rect")
     }
 }
 
@@ -103,6 +147,30 @@ pub enum LayoutDir {
     #[default]
     TopBottom,
     LeftRight,
+    BottomTop,
+    RightLeft,
+}
+
+impl LayoutDir {
+    /// `TB`/`TD`, `LR`, `BT`, `RL` (both GFD `dir:` and mermaid headers).
+    pub fn from_keyword(word: &str) -> Option<LayoutDir> {
+        match word {
+            "TB" | "TD" => Some(LayoutDir::TopBottom),
+            "LR" => Some(LayoutDir::LeftRight),
+            "BT" => Some(LayoutDir::BottomTop),
+            "RL" => Some(LayoutDir::RightLeft),
+            _ => None,
+        }
+    }
+
+    pub fn keyword(self) -> &'static str {
+        match self {
+            LayoutDir::TopBottom => "TB",
+            LayoutDir::LeftRight => "LR",
+            LayoutDir::BottomTop => "BT",
+            LayoutDir::RightLeft => "RL",
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -168,6 +236,8 @@ pub enum AttrItem {
     TextColor(ValueExpr),
     Width(ValueExpr),
     Height(ValueExpr),
+    /// `icon=gear` (named icon) or `icon="⚙"` (literal glyph).
+    Icon(ValueExpr),
     /// `$var` splice of another bundle inside a bundle literal.
     Splice { name: SmolStr, span: Span },
 }

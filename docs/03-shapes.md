@@ -1,21 +1,28 @@
 # Shapes
 
-Eleven shapes, chosen to cover the classic flowchart vocabulary. The keyword
-goes in a node's attribute list: `n "Label" [hexagon]`.
+Seventeen shapes covering the classic flowchart vocabulary plus state-machine
+and annotation staples. The keyword goes in a node's attribute list:
+`n "Label" [hexagon]`.
 
-| Keyword | Alias | Shape | Conventional meaning |
+| Keyword | Aliases | Shape | Conventional meaning |
 |---|---|---|---|
 | `rect` | | sharp rectangle | generic step (default) |
 | `rounded` | | rounded rectangle | process / action |
-| `stadium` | | pill / capsule | start & end points |
+| `stadium` | `pill` | pill / capsule | start & end points |
 | `circle` | | perfect circle | connectors, states |
-| `ellipse` | | oval | terminal state |
-| `diamond` | | rhombus | decision |
-| `hexagon` | | six-sided | preparation / gateway |
-| `parallelogram` | `para` | slanted rect | input / output |
+| `ellipse` | `oval` | oval | terminal state |
+| `diamond` | `rhombus`, `decision` | rhombus | decision |
+| `hexagon` | `hex` | six-sided | preparation / gateway |
+| `parallelogram` | `para`, `io` | slanted rect | input / output |
 | `trapezoid` | | narrow top | manual operation |
-| `cylinder` | `db` | database drum | data store |
+| `cylinder` | `db`, `database` | database drum | data store |
 | `card` | | cut-corner rect | file / artifact |
+| `subroutine` | `sub` | double-railed rect | predefined process |
+| `dblcircle` | | concentric circles | accept / final state |
+| `octagon` | `stop` | stop sign | halt / terminate |
+| `triangle` | | point-up triangle | extract / merge point |
+| `note` | | folded-corner rect | annotation / comment |
+| `tag` | | pointed-end rect | label / off-page link |
 
 ```gfd
 // A quick gallery — paste this into gridflow:
@@ -31,6 +38,41 @@ h "parallelogram" [para]          right-of g gap 40
 i "trapezoid"     [trapezoid]     right-of h gap 40
 j "database"      [db]            below g gap 60
 k "card"          [card]          right-of j gap 40
+l "subroutine"    [subroutine]    right-of k gap 40
+m "dblcircle"     [dblcircle]     below j gap 60
+n "octagon"       [octagon]       right-of m gap 40
+o "triangle"      [triangle]      right-of n gap 40
+p "note"          [note]          below m gap 60
+q "tag"           [tag]           right-of p gap 40
+```
+
+## Icons
+
+Any node can carry an icon glyph, drawn before the first label line. Use a
+named icon from the built-in set, or any literal glyph string:
+
+```gfd
+auth  "auth service" [rounded, icon=lock]
+store "orders"       [db, icon=db]
+fn    "resize"       [rounded, icon="λ"]
+```
+
+Named icons (`icon=NAME`): `alert api bolt book box bug build cache calendar
+camera chart chat check clock cloud code config cpu cross db doc download
+email event file fire flag folder gear globe heart home idea key link lock
+mobile money music pin queue robot rocket search server shield star stop
+sync terminal timer trash unlock upload user users warn web`.
+
+Icons are plain text all the way through — they render identically on the
+canvas and in SVG/PNG exports, and they respect the node's text color.
+Classes can set them too, via the well-known `icon` variable:
+
+```gfd
+class Db(name) {
+  shape = [cylinder]
+  label = $name
+  icon  = "db"
+}
 ```
 
 ## Sizing

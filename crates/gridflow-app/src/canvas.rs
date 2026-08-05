@@ -284,7 +284,7 @@ pub fn show(
             }
         }
 
-        let label = node.label.clone().unwrap_or_else(|| node.id.to_string());
+        let label = node.display_label();
         let font = zoomed_font(BASE_FONT_SIZE, camera.zoom);
         if font.size >= TEXT_CUTOFF_PX {
             let color = if node.phantom {
@@ -390,18 +390,17 @@ fn draw_shape(
             let pts = screen_outline(shape, rect);
             painter.add(EShape::convex_polygon(pts.clone(), fill, Stroke::NONE));
             draw_poly_outline(painter, &pts, stroke, dashed, zoom);
-            if shape == Shape::Cylinder {
-                let c = rect.center();
-                let rim: Vec<Pos2> = gridflow_core::geometry::cylinder_rim(
-                    [c.x, c.y],
-                    [rect.width(), rect.height()],
-                )
-                .into_iter()
-                .map(|p| Pos2::new(p[0], p[1]))
-                .collect();
-                painter.add(EShape::line(rim, stroke));
-            }
         }
+    }
+    // Decorations (cylinder rim, subroutine rails, inner ring, note fold).
+    let c = rect.center();
+    for deco in gridflow_core::geometry::shape_decorations(
+        shape,
+        [c.x, c.y],
+        [rect.width(), rect.height()],
+    ) {
+        let pts: Vec<Pos2> = deco.into_iter().map(|p| Pos2::new(p[0], p[1])).collect();
+        painter.add(EShape::line(pts, stroke));
     }
 }
 

@@ -21,7 +21,7 @@ pub enum Value {
     Bundle(Vec<ResolvedAttr>),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ResolvedAttr {
     Shape(Shape),
     Dashed,
@@ -31,6 +31,8 @@ pub enum ResolvedAttr {
     TextColor(Rgba),
     Width(f32),
     Height(f32),
+    /// Already resolved to a glyph (names went through the icon table).
+    Icon(SmolStr),
 }
 
 #[derive(Clone)]
@@ -327,6 +329,12 @@ impl<'a> Resolver<'a> {
         if let Some(Value::Num(n)) = get(&env, "h") {
             style.height = Some(n);
         }
+        if let Some(v) = get(&env, "icon") {
+            match v {
+                Value::Str(s) => style.icon = Some(SmolStr::new(crate::icons::glyph(&s))),
+                _ => self.diag(class_span, "`icon` must be a string"),
+            }
+        }
 
         let ports = class
             .ports
@@ -475,7 +483,7 @@ impl<'a> Resolver<'a> {
             let mut diags = Vec::new();
             let items = eval_attr_items(&e.attrs, &|name| self.lookup(name), &mut diags);
             self.model.diagnostics.extend(diags);
-            for item in e.defaults.iter().copied().chain(items) {
+            for item in e.defaults.iter().cloned().chain(items) {
                 match item {
                     ResolvedAttr::Dashed => dashed = true,
                     ResolvedAttr::Bold => bold = true,
@@ -666,8 +674,27 @@ fn eval_attr_items<'e>(
                 Some(_) => diags.push(Diagnostic::error(e.span(), "`h` must be a number")),
                 None => {}
             },
+            AttrItem::Icon(e) => match eval_value(e, lookup, diags) {
+                Some(Value::Str(s)) => {
+                    if !crate::icons::is_known(&s)
+                        && s.len() > 1
+                        && s.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+                    {
+                        diags.push(Diagnostic::warning(
+                            e.span(),
+                            format!("unknown icon name `{s}` (rendering it as literal text)"),
+                        ));
+                    }
+                    out.push(ResolvedAttr::Icon(SmolStr::new(crate::icons::glyph(&s))));
+                }
+                Some(_) => diags.push(Diagnostic::error(
+                    e.span(),
+                    "`icon` must be a name or a string glyph",
+                )),
+                None => {}
+            },
             AttrItem::Splice { name, span } => match lookup(name) {
-                Some(Binding::Value(Value::Bundle(items))) => out.extend(items.iter().copied()),
+                Some(Binding::Value(Value::Bundle(items))) => out.extend(items.iter().cloned()),
                 Some(Binding::Value(_)) => diags.push(Diagnostic::error(
                     *span,
                     format!("`${name}` must be a bundle to splice into `[...]`"),
@@ -694,6 +721,7 @@ fn apply_attrs(shape: &mut Shape, style: &mut NodeStyle, items: &[ResolvedAttr])
             ResolvedAttr::TextColor(c) => style.text = Some(*c),
             ResolvedAttr::Width(n) => style.width = Some(*n),
             ResolvedAttr::Height(n) => style.height = Some(*n),
+            ResolvedAttr::Icon(g) => style.icon = Some(g.clone()),
         }
     }
 }

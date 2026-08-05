@@ -7,9 +7,9 @@ use crate::editor::EditorPane;
 use crate::files;
 use crate::library_ui::LibraryUi;
 use crate::notes::NotesPane;
-use crate::theme::Theme;
+use crate::theme::{Theme, ThemeChoice};
 use eframe::egui::{self, Color32, FontId, Key, KeyboardShortcut, Modifiers};
-use gridflow_core::document::Document;
+use gridflow_core::document::{Document, Language};
 use gridflow_core::geometry::TextMeasurer;
 use gridflow_core::layout::{LayoutEngine, LayoutResult};
 use gridflow_core::model::NodeId;
@@ -43,6 +43,8 @@ struct Persisted {
     show_notes: bool,
     show_library: bool,
     camera: Option<Camera>,
+    #[serde(default)]
+    theme: ThemeChoice,
 }
 
 pub struct GridflowApp {
@@ -64,6 +66,7 @@ pub struct GridflowApp {
     confirm_close: bool,
     status: String,
     last_layout_version: u64,
+    theme_choice: ThemeChoice,
 }
 
 impl GridflowApp {
@@ -97,6 +100,7 @@ impl GridflowApp {
             confirm_close: false,
             status: String::new(),
             last_layout_version: u64::MAX,
+            theme_choice: persisted.theme,
         };
         if let Some(path) = persisted.last_file.clone() {
             app.load(path);
@@ -223,7 +227,21 @@ impl GridflowApp {
         }
     }
 
-    fn menu_bar(&mut self, root: &mut egui::Ui) {
+    /// Replace the whole document text with generated GFD — one undoable op.
+    fn convert_to_gfd(&mut self) {
+        if self.doc.language() != Language::Mermaid {
+            return;
+        }
+        let gfd = gridflow_core::mermaid::to_gfd(self.doc.model());
+        let len = self.doc.text().len();
+        self.apply_op(
+            vec![gridflow_core::ops::TextEdit::new(0, len, gfd)],
+            Intent::Paste,
+        );
+        self.status = "Converted to GFD (⌘Z reverts)".into();
+    }
+
+    fn menu_bar(&mut self, root: &mut egui::Ui, theme: &Theme) {
         let ctx = root.ctx().clone();
         let ctx = &ctx;
         egui::Panel::top("menu").show(root, |ui| {
@@ -265,10 +283,29 @@ impl GridflowApp {
                         ui.close();
                     }
                     ui.separator();
+                    let convertible = self.doc.language() == Language::Mermaid;
+                    if ui
+                        .add_enabled(convertible, egui::Button::new("Convert Mermaid → GFD"))
+                        .on_hover_text(
+                            "Rewrites the document as equivalent GFD. Unlocks drag-to-pin, \
+                             variables and classes; one undo step reverts.",
+                        )
+                        .clicked()
+                    {
+                        self.convert_to_gfd();
+                        ui.close();
+                    }
+                    ui.separator();
                     if ui.button("Export SVG…").clicked() {
                         if let Some(p) = crate::export::pick_export("svg") {
                             let m = EguiMeasurer(ctx);
-                            match crate::export::export_svg(self.doc.model(), &self.layout, &m, &p) {
+                            match crate::export::export_svg(
+                                self.doc.model(),
+                                &self.layout,
+                                &m,
+                                &p,
+                                theme.scene_style(),
+                            ) {
                                 Ok(()) => self.status = "Exported SVG".into(),
                                 Err(e) => self.status = format!("Export failed: {e}"),
                             }
@@ -278,8 +315,14 @@ impl GridflowApp {
                     if ui.button("Export PNG (2x)…").clicked() {
                         if let Some(p) = crate::export::pick_export("png") {
                             let m = EguiMeasurer(ctx);
-                            match crate::export::export_png(self.doc.model(), &self.layout, &m, &p, 2.0)
-                            {
+                            match crate::export::export_png(
+                                self.doc.model(),
+                                &self.layout,
+                                &m,
+                                &p,
+                                2.0,
+                                theme.scene_style(),
+                            ) {
                                 Ok(()) => self.status = "Exported PNG".into(),
                                 Err(e) => self.status = format!("Export failed: {e}"),
                             }
@@ -291,6 +334,17 @@ impl GridflowApp {
                     ui.checkbox(&mut self.show_editor, "Editor pane   ⌘1");
                     ui.checkbox(&mut self.show_notes, "Notes pane   ⌘2");
                     ui.checkbox(&mut self.show_library, "Library pane   ⌘3");
+                    ui.separator();
+                    ui.menu_button(format!("Theme: {}", self.theme_choice.label()), |ui| {
+                        for (choice, label) in ThemeChoice::ALL {
+                            if ui
+                                .radio_value(&mut self.theme_choice, *choice, *label)
+                                .clicked()
+                            {
+                                ui.close();
+                            }
+                        }
+                    });
                     ui.separator();
                     if ui.button("Zoom 100%").clicked() {
                         self.camera.zoom = 1.0;
@@ -323,6 +377,13 @@ impl GridflowApp {
                     .map(|f| f.to_string_lossy().into_owned())
                     .unwrap_or_else(|| "untitled.gfd".into());
                 ui.label(format!("{name}{}", if self.doc.is_dirty() { " •" } else { "" }));
+                ui.separator();
+                match self.doc.language() {
+                    Language::Gfd => ui.weak("GFD"),
+                    Language::Mermaid => ui
+                        .weak("Mermaid")
+                        .on_hover_text("Rendered natively. File → Convert Mermaid → GFD unlocks drag-to-pin."),
+                };
                 ui.separator();
                 let errors = self
                     .doc
@@ -369,6 +430,7 @@ impl eframe::App for GridflowApp {
                 show_notes: self.show_notes,
                 show_library: self.show_library,
                 camera: Some(self.camera),
+                theme: self.theme_choice,
             },
         );
     }
@@ -405,11 +467,13 @@ impl eframe::App for GridflowApp {
                 });
         }
 
-        self.shortcuts(ctx);
-        self.menu_bar(root);
-        self.status_bar(root);
+        let system_dark = ctx.theme() == egui::Theme::Dark;
+        let theme = self.theme_choice.resolve(system_dark);
+        ctx.set_visuals(theme.egui_visuals());
 
-        let theme = Theme::new(ctx.theme() == egui::Theme::Dark);
+        self.shortcuts(ctx);
+        self.menu_bar(root, &theme);
+        self.status_bar(root);
 
         // Layout must be current before any pane draws.
         if self.doc.version() != self.last_layout_version {
@@ -427,8 +491,9 @@ impl eframe::App for GridflowApp {
                     self.editor.sync(self.doc.text(), self.doc.version());
                     let mut diags = self.doc.model().diagnostics.clone();
                     diags.extend(self.layout.diagnostics.iter().cloned());
+                    let language = self.doc.language();
                     egui::ScrollArea::vertical().show(ui, |ui| {
-                        if let Some(edit) = self.editor.show(ui, &diags, &theme) {
+                        if let Some(edit) = self.editor.show(ui, &diags, &theme, language) {
                             self.apply_op(vec![edit], Intent::Typing);
                             self.editor.synced_version = self.doc.version();
                             self.editor.scratch = self.doc.text().to_string();
@@ -484,6 +549,15 @@ impl eframe::App for GridflowApp {
                 match event {
                     CanvasEvent::Select(id) => self.selection = id,
                     CanvasEvent::NodeDragged { id, world } => {
+                        // Drag-to-pin writes `@ (x, y)` — GFD syntax. Mermaid
+                        // has no placement clause, so the drag springs back
+                        // and the status bar points at the converter.
+                        if self.doc.language() == Language::Mermaid {
+                            self.status =
+                                "Mermaid has no pin syntax — File → Convert Mermaid → GFD".into();
+                            self.selection = Some(id);
+                            continue;
+                        }
                         if let Some(node) = self.doc.model().nodes.get(&id).cloned() {
                             let edit =
                                 rewrite::move_node_edit(self.doc.text(), &node, world[0], world[1]);
@@ -492,6 +566,11 @@ impl eframe::App for GridflowApp {
                         }
                     }
                     CanvasEvent::GroupDragged { id, world } => {
+                        if self.doc.language() == Language::Mermaid {
+                            self.status =
+                                "Mermaid has no pin syntax — File → Convert Mermaid → GFD".into();
+                            continue;
+                        }
                         if let Some(edit) =
                             rewrite::move_group_edit(self.doc.model(), &id, world[0], world[1])
                         {

@@ -13,6 +13,16 @@ h "parallelogram" [para]          right-of g gap 40
 i "trapezoid"     [trapezoid]     right-of h gap 40
 j "database"      [db]            below g gap 70
 k "card"          [card]          right-of j gap 40
+l "subroutine"    [subroutine]    right-of k gap 40
+m "dblcircle"     [dblcircle]     below j gap 70
+n "octagon"       [octagon]       right-of m gap 40
+o "triangle"      [triangle]      right-of n gap 40
+p "note"          [note]          below m gap 70
+q "tag"           [tag]           right-of p gap 40
+
+// icons: named (icon=gear) or literal (icon="⚙") — see Help → Icons
+svc  "auth service" [rounded, icon=lock]     right-of q gap 60
+data "orders"       [db, icon=db]            right-of svc gap 40
 
 // chains + reversed + dotted arrows, edge defaults
 default edge [stroke=#8a94a6]

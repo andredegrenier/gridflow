@@ -27,6 +27,8 @@ pub struct NodeStyle {
     pub bold: bool,
     pub width: Option<f32>,
     pub height: Option<f32>,
+    /// Resolved icon glyph, drawn as the first label line's prefix.
+    pub icon: Option<SmolStr>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -59,6 +61,18 @@ pub struct Node {
     pub insert_placement_at: usize,
     /// True when the node exists only because an edge references it.
     pub phantom: bool,
+}
+
+impl Node {
+    /// What renderers draw and sizing measures: the label (or the id when
+    /// there is none), with the icon glyph prefixed to the first line.
+    pub fn display_label(&self) -> String {
+        let base = self.label.as_deref().unwrap_or(self.id.as_str());
+        match &self.style.icon {
+            Some(g) => format!("{g} {base}"),
+            None => base.to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

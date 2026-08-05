@@ -30,12 +30,31 @@
 ## The editor pane
 
 - Syntax highlighting driven by the same lexer the parser uses — what looks
-  like a keyword *is* a keyword.
+  like a keyword *is* a keyword. Mermaid documents get mermaid highlighting
+  (see the **Mermaid** chapter).
 - Diagnostics appear as red (error) or amber (warning) underlines, with the
   first message and a total count in the status bar.
 - The editor and canvas are two views of one document: a drag on the canvas
   shows up as a text change instantly, and `⌘Z` walks back through both kinds
   of edits in order.
+
+## Themes
+
+**View → Theme** switches the whole app live — canvas, node defaults, syntax
+highlighting, panels, and exports all follow:
+
+| Theme | Character |
+|---|---|
+| System | follows the OS light/dark setting (default) |
+| Light / Dark | the classic gridflow palettes |
+| Midnight | near-black with electric accents, made for OLED |
+| Nord | the arctic blue-grey dark standard |
+| Solarized Light | precise Solarized base + accent values |
+| Paper | warm sepia light, easy on the eyes in bright rooms |
+
+Node `fill=`/`stroke=`/`text=` colors you set explicitly are kept as-is in
+every theme; only unstyled nodes take the theme's defaults. SVG/PNG exports
+use the active theme, so what you export is what you see.
 
 ## The canvas
 
@@ -56,7 +75,9 @@ button toggles a plain-text editor. Notes save together with the diagram on
 
 ## Status bar
 
-`filename • | N problem(s) <first message> | zoom% | status`
+`filename • | language | N problem(s) <first message> | zoom% | status`
+
+The language chip shows **GFD** or **Mermaid** for the active document.
 
 The dirty dot (`•`) means unsaved changes; closing the window with unsaved
 changes asks first.

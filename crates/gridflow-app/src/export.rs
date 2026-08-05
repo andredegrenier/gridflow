@@ -12,8 +12,9 @@ pub fn export_svg(
     layout: &LayoutResult,
     measurer: &dyn TextMeasurer,
     path: &Path,
+    style: SceneStyle,
 ) -> Result<(), String> {
-    let scene = build_scene(model, layout, SceneStyle::default(), measurer);
+    let scene = build_scene(model, layout, style, measurer);
     std::fs::write(path, to_svg(&scene)).map_err(|e| e.to_string())
 }
 
@@ -23,8 +24,9 @@ pub fn export_png(
     measurer: &dyn TextMeasurer,
     path: &Path,
     scale: f32,
+    style: SceneStyle,
 ) -> Result<(), String> {
-    let scene = build_scene(model, layout, SceneStyle::default(), measurer);
+    let scene = build_scene(model, layout, style, measurer);
     let svg = to_svg(&scene);
     let tree = resvg::usvg::Tree::from_str(&svg, &resvg::usvg::Options::default())
         .map_err(|e| e.to_string())?;

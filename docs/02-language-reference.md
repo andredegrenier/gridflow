@@ -30,8 +30,10 @@ statement   := use | dir | default | assignment | class | node | edge | group
 ## `dir` — layout direction
 
 ```gfd
-dir: TB    // top-to-bottom flow (default)
+dir: TB    // top-to-bottom flow (default; `TD` is an alias)
 dir: LR    // left-to-right flow
+dir: BT    // bottom-to-top
+dir: RL    // right-to-left
 ```
 
 At file scope it sets the direction for the whole diagram; inside a group it
@@ -58,13 +60,14 @@ Inside `[...]`, comma-separated:
 
 | Attribute | Effect |
 |---|---|
-| shape keyword | see the **Shapes** chapter: `rect`, `rounded`, `stadium`, `circle`, `ellipse`, `diamond`, `hexagon`, `parallelogram`/`para`, `trapezoid`, `cylinder`/`db`, `card` |
+| shape keyword | see the **Shapes** chapter: `rect`, `rounded`, `stadium`, `circle`, `ellipse`, `diamond`, `hexagon`, `parallelogram`, `trapezoid`, `cylinder`, `card`, `subroutine`, `dblcircle`, `octagon`, `triangle`, `note`, `tag` — plus aliases like `db`, `para`, `pill`, `hex`, `rhombus`, `oval`, `io`, `stop` |
 | `dashed` | dashed border |
 | `bold` | thick border + bold-ish label |
 | `fill=<color>` | background color |
 | `stroke=<color>` | border color |
 | `text=<color>` | label color |
-| `w=<num>` / `h=<num>` | fixed width/height (world units) |
+| `icon=<name>` or `icon="⚙"` | glyph before the label (see **Shapes → Icons**) |
+| `w=<num>` / `h=<num>` | fixed width/height (world units; `width=`/`height=` also accepted) |
 | `$var` | splice a bundle variable's items in place |
 
 Later items win: `[fill=#f00, fill=#0f0]` is green.
@@ -82,6 +85,7 @@ a -> b : "label"             // label
 a -> b : "label" [dashed, bold, stroke=#c00]
 a -> b -> c -> d             // chain: three edges; label/attrs apply to each
 n.out -> m.in                // port-anchored (see Classes)
+a --> b                      // mermaid-style aliases: --> <-- <--> ≡ -> <- <->
 ```
 
 An edge may reference an id that is never declared — gridflow renders a dashed
@@ -140,7 +144,7 @@ See the **Variables & Classes** chapter for full semantics. Summary:
 - Parameters are positional; trailing parameters may declare defaults.
 - The class body is a list of variable assignments and `port` declarations.
 - Well-known variables map onto the node: `shape` (a bundle), `label`, `fill`,
-  `stroke`, `w`, `h`. Any other variables are just intermediates.
+  `stroke`, `w`, `h`, `icon`. Any other variables are just intermediates.
 - `port <name> <side>` declares a named attach point (`top`/`bottom`/`left`/
   `right`). Multiple ports on one side space themselves evenly.
 - Instantiation is `id = ClassName(args...)` with an optional placement.
@@ -200,7 +204,7 @@ The canvas is never blanked by an error.
 statement    := use | dir | default | assign | class | node_decl | edge_decl | group_decl
 use          := "use" use_item ("," use_item)*
 use_item     := IDENT | STRING
-dir          := "dir" ":" ("TB" | "LR")
+dir          := "dir" ":" ("TB" | "TD" | "LR" | "BT" | "RL")
 default      := "default" ("node" | "edge") attrs
 assign       := IDENT "=" (value | call) placement?
 call         := IDENT "(" (value ("," value)*)? ")"
@@ -213,10 +217,12 @@ node_decl    := "node"? IDENT ("$" IDENT)? STRING? attrs? placement?
 edge_decl    := endpoint (arrow endpoint)+ (":" STRING)? attrs?
 endpoint     := IDENT ("." IDENT)?
 arrow        := "->" | "<-" | "<->" | "--" | "..>" | "<.."
+              | "-->" | "<--" | "<-->"          (aliases)
 group_decl   := "group" IDENT STRING? placement? "{" (node_decl|edge_decl|dir)* "}"
 attrs        := "[" (attr ("," attr)*)? "]"
 attr         := SHAPE_KW | "dashed" | "bold"
-              | ("fill"|"stroke"|"text"|"w"|"h") "=" value
+              | ("fill"|"stroke"|"text"|"w"|"h"|"width"|"height") "=" value
+              | "icon" "=" (IDENT | STRING)
               | "$" IDENT
 value        := COLOR | NUMBER | STRING | "$" IDENT | attrs
 placement    := "@" "(" NUMBER "," NUMBER ")"

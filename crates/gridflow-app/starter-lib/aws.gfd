@@ -8,6 +8,7 @@ class Service(name, color=#eef2f7) {
   shape = [rounded]
   label = $name
   fill  = $color
+  icon  = "gear"
   port in  left
   port out right
 }
@@ -22,6 +23,7 @@ class Lambda(name) {
 class Queue(name) {
   shape = [stadium, fill=#fce4ec]
   label = $name
+  icon  = "queue"
   port in  left
   port out right
 }
@@ -29,6 +31,7 @@ class Queue(name) {
 class Db(name) {
   shape = [cylinder, fill=#e8eaf6]
   label = $name
+  icon  = "db"
   port write top
   port read  bottom
 }
@@ -36,11 +39,28 @@ class Db(name) {
 class Bucket(name) {
   shape = [card, fill=#e8f5e9]
   label = $name
+  icon  = "box"
 }
 
 class Gateway(name) {
   shape = [hexagon, fill=#e0f2f1]
   label = $name
+  icon  = "globe"
   port pub  left
   port priv right
+}
+
+class Cache(name) {
+  shape = [stadium, fill=#e0f7fa]
+  label = $name
+  icon  = "bolt"
+  port in  left
+  port out right
+}
+
+class Cron(name) {
+  shape = [rounded, fill=#f3e5f5]
+  label = $name
+  icon  = "clock"
+  port fire right
 }
