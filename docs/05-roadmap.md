@@ -31,6 +31,9 @@ Elixir's GenServer while remaining sound?
 - Decide the scope ladder deliberately: (a) cooperative + compiler-inserted
   safepoints → (b) preemption; (i) shared immutable heap + per-process
   nurseries → (ii) full isolation. Where on each ladder does v0.1 land?
+- Scope now explicitly includes the P12 memory model (doc 06): per-process
+  GC design, escape analysis feasibility, scoped-arena escape checking,
+  and the copy-vs-share policy for message sends / large binaries.
 - Deliverable: a feasibility memo with a scheduler/GC design sketch and a
   ≤ 500-line native proof-of-concept (spawn 1M green processes, message
   ring benchmark, one hostile busy-loop process that cannot starve the
@@ -53,6 +56,8 @@ the spec's test suite and every future feature's audition:
 8. Error-handling showcase: fallible pipeline, `?`, recovery, crash+restart
 9. Test file: table-driven tests + a property test for program 7
 10. A 3-module program exercising public-boundary annotations (P3)
+11. Hot-path buffer pipeline in Tier 0 then Tier 1 (P12) — the delta must
+    be local and signatures must not change
 - Written in 2–3 candidate surface syntaxes; reviewed for the P9 gate
   ("would a Python dev read this cold?").
 - **Gate:** one syntax direction chosen, with the sample suite as ADR-001.

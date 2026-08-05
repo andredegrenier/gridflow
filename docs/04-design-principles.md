@@ -99,6 +99,13 @@ Go-style compatibility promise.
 *Rationale:* ecosystem cold-start mitigation #1 (docs 02–03); uniformity
 across codebases. *Cost:* stdlib maintenance burden; slower stdlib churn.
 
+### P12. Memory: automatic by default, structured control on demand
+Defined and defended in [doc 06](06-memory-model.md): per-process GC'd
+heaps as the worry-free default; opt-in, colorless, 100%-safe control
+(scoped arenas, value types, shared immutable buffers, pools) for hot
+paths; `unsafe` only at the FFI edge. Control changes performance, never
+safety.
+
 ## Non-goals (v1)
 
 - No macros or compile-time metaprogramming.

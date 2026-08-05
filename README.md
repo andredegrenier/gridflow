@@ -28,6 +28,7 @@ design lens.
 | [03 — Niche](docs/03-niche.md) | Candidate niches evaluated against explicit criteria; positioning; riskiest assumptions |
 | [04 — Design principles](docs/04-design-principles.md) | Pillars, hard budgets, and non-goals derived from 01–03 |
 | [05 — Roadmap](docs/05-roadmap.md) | Open research questions, phased plan, and kill criteria |
+| [06 — Memory model](docs/06-memory-model.md) | The memory debate resolved: automatic by default, structured safe control on demand (P12) |
 
 ## Status
 
