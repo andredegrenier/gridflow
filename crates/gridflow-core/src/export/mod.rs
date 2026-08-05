@@ -185,15 +185,25 @@ pub fn build_scene(
         };
         let rect = Rect::from_center_size(pos, size);
         bounds = bounds.union(rect);
+        let stroke = node.style.stroke.unwrap_or(style.node_stroke);
+        let stroke_width = if node.style.bold { 2.5 } else { 1.4 };
         items.push(SceneItem::Shape {
             shape: node.shape,
             rect,
             fill: node.style.fill.unwrap_or(style.node_fill),
-            stroke: node.style.stroke.unwrap_or(style.node_stroke),
-            stroke_width: if node.style.bold { 2.5 } else { 1.4 },
+            stroke,
+            stroke_width,
             dashed: node.style.dashed || node.phantom,
         });
-        let label = node.label.clone().unwrap_or_else(|| node.id.to_string());
+        for deco in crate::geometry::shape_decorations(node.shape, pos, size) {
+            items.push(SceneItem::Line {
+                points: deco,
+                stroke,
+                width: stroke_width,
+                dashed: false,
+            });
+        }
+        let label = node.display_label();
         // Center multi-line labels as a block.
         let line_h = measurer.measure("Ay", BASE_FONT_SIZE)[1];
         let lines: Vec<&str> = label.lines().collect();

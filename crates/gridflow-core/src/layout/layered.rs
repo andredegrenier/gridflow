@@ -20,9 +20,12 @@ pub fn layout(
         return Vec::new();
     }
     // Axis mapping: primary = flow direction, cross = the other one.
-    let (pi, ci) = match dir {
-        LayoutDir::TopBottom => (1usize, 0usize),
-        LayoutDir::LeftRight => (0usize, 1usize),
+    // BT/RL lay out as TB/LR, then the primary axis is mirrored at the end.
+    let (pi, ci, flip) = match dir {
+        LayoutDir::TopBottom => (1usize, 0usize, false),
+        LayoutDir::LeftRight => (0usize, 1usize, false),
+        LayoutDir::BottomTop => (1usize, 0usize, true),
+        LayoutDir::RightLeft => (0usize, 1usize, true),
     };
 
     let dag = break_cycles(n, edges);
@@ -129,7 +132,11 @@ pub fn layout(
     (0..n)
         .map(|v| {
             let mut p = [0.0f32; 2];
-            p[pi] = layer_primary[layers[v]];
+            p[pi] = if flip {
+                acc - LAYER_GAP - layer_primary[layers[v]]
+            } else {
+                layer_primary[layers[v]]
+            };
             p[ci] = cross[v];
             p
         })

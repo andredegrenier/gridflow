@@ -283,14 +283,14 @@ impl<'a> Parser<'a> {
     fn parse_dir(&mut self) -> Result<Stmt, ()> {
         let kw = self.bump().unwrap();
         self.expect(Token::Colon, "`:` after `dir`")?;
-        let l = self.expect(Token::Ident, "`TB` or `LR`")?;
-        let dir = match self.text(l) {
-            "TB" => LayoutDir::TopBottom,
-            "LR" => LayoutDir::LeftRight,
-            other => {
+        let l = self.expect(Token::Ident, "`TB`, `LR`, `BT` or `RL`")?;
+        let dir = match LayoutDir::from_keyword(self.text(l)) {
+            Some(dir) => dir,
+            None => {
+                let other = self.text(l);
                 self.diags.push(Diagnostic::error(
                     self.span_of(l),
-                    format!("unknown direction `{other}` (expected TB or LR)"),
+                    format!("unknown direction `{other}` (expected TB, LR, BT or RL)"),
                 ));
                 return Err(());
             }
@@ -447,7 +447,23 @@ impl<'a> Parser<'a> {
                 match word {
                     "dashed" => { self.bump(); Some(AttrItem::Dashed) }
                     "bold" => { self.bump(); Some(AttrItem::Bold) }
-                    "fill" | "stroke" | "text" | "w" | "h" => {
+                    "icon" => {
+                        self.bump();
+                        self.expect(Token::Eq, "`=`").ok()?;
+                        // `icon=gear` — a bare identifier is sugar for a string.
+                        let value = match self.peek() {
+                            Some(n) if n.token == Token::Ident => {
+                                self.bump();
+                                ValueExpr::Str(StrLit {
+                                    segments: vec![StrSeg::Lit(self.text(n).to_string())],
+                                    span: self.span_of(n),
+                                })
+                            }
+                            _ => self.parse_value().ok()?,
+                        };
+                        Some(AttrItem::Icon(value))
+                    }
+                    "fill" | "stroke" | "text" | "w" | "h" | "width" | "height" => {
                         self.bump();
                         self.expect(Token::Eq, "`=`").ok()?;
                         let value = self.parse_value().ok()?;
@@ -455,7 +471,7 @@ impl<'a> Parser<'a> {
                             "fill" => AttrItem::Fill(value),
                             "stroke" => AttrItem::Stroke(value),
                             "text" => AttrItem::TextColor(value),
-                            "w" => AttrItem::Width(value),
+                            "w" | "width" => AttrItem::Width(value),
                             _ => AttrItem::Height(value),
                         })
                     }

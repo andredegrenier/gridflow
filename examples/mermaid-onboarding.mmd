@@ -1,0 +1,25 @@
+%% Paste mermaid straight into gridflow — it renders natively on the same
+%% canvas as GFD: pan/zoom, themes, SVG/PNG export, jump-to-source.
+%% File → "Convert Mermaid → GFD" rewrites this file in GFD when you want
+%% drag-to-pin, variables, classes and ports.
+flowchart TD
+  start([Sign-up]) --> form[Fill in form]
+  form --> valid{Valid?}
+  valid -->|yes| create[[Create account]]
+  valid -->|no| form
+  create --> db[(users)]
+  create -.-> mail[Send welcome email]
+
+  subgraph billing [Billing]
+    direction LR
+    trial[Start trial] --> plan{Pick plan}
+    plan -->|monthly| m[Charge monthly]
+    plan -->|annual| a[Charge annually]
+  end
+
+  create --> trial
+  m & a ==> active(((Active)))
+
+  classDef hot fill:#fff3e0,stroke:#fb8c00
+  class create,active hot
+  style db fill:#ede7f6

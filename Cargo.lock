@@ -1569,7 +1569,7 @@ dependencies = [
 
 [[package]]
 name = "gridflow-app"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "directories",
  "eframe",
@@ -1583,7 +1583,7 @@ dependencies = [
 
 [[package]]
 name = "gridflow-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "indexmap",
  "logos",

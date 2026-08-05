@@ -6,6 +6,7 @@ use crate::theme::Theme;
 use eframe::egui::text::{CCursor, CCursorRange, LayoutJob, TextFormat};
 use eframe::egui::{self, FontId, Stroke, TextEdit, Ui};
 use gridflow_core::ast::{Diagnostic, Severity, Span};
+use gridflow_core::document::Language;
 use gridflow_core::lexer::{lex, Token};
 use gridflow_core::ops::TextEdit as CoreEdit;
 
@@ -43,6 +44,7 @@ impl EditorPane {
         ui: &mut Ui,
         diagnostics: &[Diagnostic],
         theme: &Theme,
+        language: Language,
     ) -> Option<CoreEdit> {
         let before = self.scratch.clone();
 
@@ -50,7 +52,10 @@ impl EditorPane {
             diagnostics.iter().map(|d| (d.span, d.severity)).collect();
         let theme_colors = TokenColors::from(theme);
         let mut layouter = move |ui: &Ui, buf: &dyn egui::TextBuffer, wrap_width: f32| {
-            let mut job = highlight(buf.as_str(), &diags, &theme_colors);
+            let mut job = match language {
+                Language::Gfd => highlight(buf.as_str(), &diags, &theme_colors),
+                Language::Mermaid => highlight_mermaid(buf.as_str(), &diags, &theme_colors),
+            };
             job.wrap.max_width = wrap_width;
             ui.painter().layout_job(job)
         };
@@ -116,8 +121,15 @@ impl From<&Theme> for TokenColors {
 const KEYWORDS: &[&str] = &[
     "node", "group", "class", "use", "dir", "port", "gap", "above", "below", "default", "rect",
     "rounded", "stadium", "circle", "ellipse", "diamond", "hexagon", "parallelogram", "para",
-    "trapezoid", "cylinder", "db", "card", "dashed", "bold", "fill", "stroke", "text", "w", "h",
-    "top", "bottom", "left", "right", "TB", "LR",
+    "trapezoid", "cylinder", "db", "card", "subroutine", "dblcircle", "octagon", "triangle",
+    "note", "tag", "database", "io", "pill", "rhombus", "decision", "hex", "oval", "stop", "sub",
+    "dashed", "bold", "fill", "stroke", "text", "icon", "w", "h", "width", "height",
+    "top", "bottom", "left", "right", "TB", "TD", "LR", "BT", "RL",
+];
+
+const MERMAID_KEYWORDS: &[&str] = &[
+    "flowchart", "graph", "subgraph", "end", "direction", "classDef", "class", "style",
+    "linkStyle", "click", "TB", "TD", "BT", "LR", "RL",
 ];
 
 fn highlight(src: &str, diags: &[(Span, Severity)], colors: &TokenColors) -> LayoutJob {
@@ -166,6 +178,89 @@ fn highlight(src: &str, diags: &[(Span, Severity)], colors: &TokenColors) -> Lay
     }
     if last < src.len() {
         push(&src[last..], colors.ident, (last, src.len()));
+    }
+    job
+}
+
+/// Line-oriented mermaid highlighter: comments, keywords, arrows, strings,
+/// bracket labels and colors. Simpler than a real lexer but stable on
+/// half-typed input, which is what an editor needs.
+fn highlight_mermaid(src: &str, diags: &[(Span, Severity)], colors: &TokenColors) -> LayoutJob {
+    let font = FontId::monospace(13.0);
+    let mut job = LayoutJob::default();
+    let mut push = |text: &str, color: egui::Color32, range: (usize, usize)| {
+        if text.is_empty() {
+            return;
+        }
+        let underline = diags
+            .iter()
+            .find(|(s, _)| s.start < range.1 && range.0 < s.end.max(s.start + 1))
+            .map(|(_, sev)| match sev {
+                Severity::Error => Stroke::new(1.5, colors.diagnostic),
+                Severity::Warning => Stroke::new(1.0, colors.warning),
+            })
+            .unwrap_or(Stroke::NONE);
+        job.append(
+            text,
+            0.0,
+            TextFormat { font_id: font.clone(), color, underline, ..Default::default() },
+        );
+    };
+
+    let mut offset = 0usize;
+    for line in src.split_inclusive('\n') {
+        let base = offset;
+        offset += line.len();
+        if line.trim_start().starts_with("%%") {
+            push(line, colors.comment, (base, base + line.len()));
+            continue;
+        }
+        let bytes = line.as_bytes();
+        let mut i = 0usize;
+        while i < bytes.len() {
+            let b = bytes[i];
+            let start = i;
+            if b == b'"' {
+                // String: to the closing quote (or end of line while typing).
+                i += 1;
+                while i < bytes.len() && bytes[i] != b'"' {
+                    i += 1;
+                }
+                i = (i + 1).min(bytes.len());
+                push(&line[start..i], colors.string, (base + start, base + i));
+            } else if b == b'#' {
+                i += 1;
+                while i < bytes.len() && bytes[i].is_ascii_hexdigit() {
+                    i += 1;
+                }
+                push(&line[start..i], colors.color, (base + start, base + i));
+            } else if matches!(b, b'-' | b'=' | b'.' | b'<' | b'>' | b'|' | b'&') {
+                while i < bytes.len()
+                    && matches!(bytes[i], b'-' | b'=' | b'.' | b'<' | b'>' | b'|' | b'&')
+                {
+                    i += 1;
+                }
+                push(&line[start..i], colors.keyword, (base + start, base + i));
+            } else if b.is_ascii_alphanumeric() || b == b'_' || b >= 0x80 {
+                while i < bytes.len()
+                    && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'_' || bytes[i] >= 0x80)
+                {
+                    i += 1;
+                }
+                let word = &line[start..i];
+                let color = if MERMAID_KEYWORDS.contains(&word) {
+                    colors.keyword
+                } else if word.chars().all(|c| c.is_ascii_digit()) {
+                    colors.number
+                } else {
+                    colors.ident
+                };
+                push(word, color, (base + start, base + i));
+            } else {
+                i += 1;
+                push(&line[start..i], colors.punct, (base + start, base + i));
+            }
+        }
     }
     job
 }

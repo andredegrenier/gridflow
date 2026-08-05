@@ -49,3 +49,20 @@ class Store(name) {
   port in  top
   port out bottom
 }
+
+class Subprocess(name) {
+  shape = [subroutine, fill=$blue]
+  label = $name
+  port in  left
+  port out right
+}
+
+class Stop(name="Stop") {
+  shape = [octagon, fill=$red]
+  label = $name
+}
+
+class Note(text) {
+  shape = [note, fill=#fffde7, stroke=#c0b95e]
+  label = $text
+}

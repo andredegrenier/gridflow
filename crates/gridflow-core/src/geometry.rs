@@ -26,7 +26,7 @@ impl TextMeasurer for MonoMeasurer {
 }
 
 pub fn node_size(node: &Node, measurer: &dyn TextMeasurer) -> [f32; 2] {
-    let label = node.label.as_deref().unwrap_or(node.id.as_str());
+    let label = node.display_label();
     let mut w: f32 = 0.0;
     let mut h: f32 = 0.0;
     for line in label.lines() {
@@ -37,10 +37,15 @@ pub fn node_size(node: &Node, measurer: &dyn TextMeasurer) -> [f32; 2] {
     let (mut w, mut h) = ((w + 2.0 * PAD_X).max(MIN_W), (h + 2.0 * PAD_Y).max(MIN_H));
     // Each shape grows enough that the label rectangle fits inside it.
     match node.shape {
-        Shape::Rect | Shape::Rounded | Shape::Card => {}
+        Shape::Rect | Shape::Rounded | Shape::Card | Shape::Note => {}
         Shape::Stadium => w += h, // one cap radius each side
         Shape::Circle => {
             let d = (w * w + h * h).sqrt() * 0.85 + PAD_X;
+            w = d.max(h * 1.2);
+            h = w;
+        }
+        Shape::DblCircle => {
+            let d = (w * w + h * h).sqrt() * 0.85 + PAD_X + 2.0 * DBLCIRCLE_GAP;
             w = d.max(h * 1.2);
             h = w;
         }
@@ -56,6 +61,18 @@ pub fn node_size(node: &Node, measurer: &dyn TextMeasurer) -> [f32; 2] {
         Shape::Parallelogram => w += h * 0.9,
         Shape::Trapezoid => w *= 1.4,
         Shape::Cylinder => h += cylinder_cap(w) * 3.0,
+        Shape::Subroutine => w += 2.0 * SUBROUTINE_INSET + PAD_X,
+        Shape::Octagon => {
+            w *= 1.25;
+            h *= 1.35;
+        }
+        // Widest at the base: the label sits at center height, where the
+        // triangle is only half its base width.
+        Shape::Triangle => {
+            w *= 2.1;
+            h *= 1.9;
+        }
+        Shape::Tag => w += h * 0.5,
     }
     if let Some(fw) = node.style.width {
         w = fw;
@@ -69,6 +86,16 @@ pub fn node_size(node: &Node, measurer: &dyn TextMeasurer) -> [f32; 2] {
 /// Vertical radius of a cylinder's elliptical caps.
 pub fn cylinder_cap(width: f32) -> f32 {
     (width * 0.14).clamp(6.0, 22.0)
+}
+
+/// Distance of a subroutine's inner rails from its side edges.
+pub const SUBROUTINE_INSET: f32 = 8.0;
+/// Ring gap between a double circle's outer and inner circles.
+pub const DBLCIRCLE_GAP: f32 = 5.0;
+
+/// Fold size of a note's turned-down corner.
+fn note_fold(size: [f32; 2]) -> f32 {
+    (size[0] * 0.25).min(size[1] * 0.4).min(14.0)
 }
 
 /// Closed outline polygon for a shape, in world coordinates. Every consumer
@@ -86,7 +113,7 @@ pub fn shape_outline(shape: Shape, center: [f32; 2], size: [f32; 2]) -> Vec<[f32
     };
     use std::f32::consts::PI;
     match shape {
-        Shape::Rect | Shape::Rounded => {
+        Shape::Rect | Shape::Rounded | Shape::Subroutine => {
             // Rounded corners matter visually but not for anchoring/hit tests.
             vec![
                 [cx - hw, cy - hh],
@@ -95,7 +122,9 @@ pub fn shape_outline(shape: Shape, center: [f32; 2], size: [f32; 2]) -> Vec<[f32
                 [cx - hw, cy + hh],
             ]
         }
-        Shape::Circle | Shape::Ellipse => arc(cx, cy, hw, hh, 0.0, 2.0 * PI, 48).collect(),
+        Shape::Circle | Shape::Ellipse | Shape::DblCircle => {
+            arc(cx, cy, hw, hh, 0.0, 2.0 * PI, 48).collect()
+        }
         Shape::Stadium => {
             let r = hh.min(hw);
             let mut pts: Vec<[f32; 2]> =
@@ -157,6 +186,81 @@ pub fn shape_outline(shape: Shape, center: [f32; 2], size: [f32; 2]) -> Vec<[f32
                 [cx - hw, cy - hh + f],
             ]
         }
+        Shape::Octagon => {
+            let c = (hw * 0.4).min(hh * 0.55);
+            vec![
+                [cx - hw + c, cy - hh],
+                [cx + hw - c, cy - hh],
+                [cx + hw, cy - hh + c],
+                [cx + hw, cy + hh - c],
+                [cx + hw - c, cy + hh],
+                [cx - hw + c, cy + hh],
+                [cx - hw, cy + hh - c],
+                [cx - hw, cy - hh + c],
+            ]
+        }
+        Shape::Triangle => vec![
+            [cx, cy - hh],
+            [cx + hw, cy + hh],
+            [cx - hw, cy + hh],
+        ],
+        Shape::Note => {
+            let f = note_fold(size);
+            vec![
+                [cx - hw, cy - hh],
+                [cx + hw - f, cy - hh],
+                [cx + hw, cy - hh + f],
+                [cx + hw, cy + hh],
+                [cx - hw, cy + hh],
+            ]
+        }
+        Shape::Tag => {
+            let s = (hw * 0.5).min(hh);
+            vec![
+                [cx - hw, cy - hh],
+                [cx + hw - s, cy - hh],
+                [cx + hw, cy],
+                [cx + hw - s, cy + hh],
+                [cx - hw, cy + hh],
+            ]
+        }
+    }
+}
+
+/// Extra open polylines drawn on top of a shape's fill with the same stroke:
+/// the cylinder rim, subroutine rails, double-circle inner ring, note fold.
+/// One shared source keeps canvas and SVG pixel-identical.
+pub fn shape_decorations(shape: Shape, center: [f32; 2], size: [f32; 2]) -> Vec<Vec<[f32; 2]>> {
+    let [cx, cy] = center;
+    let (hw, hh) = (size[0] / 2.0, size[1] / 2.0);
+    match shape {
+        Shape::Cylinder => vec![cylinder_rim(center, size)],
+        Shape::Subroutine => {
+            let x = hw - SUBROUTINE_INSET;
+            vec![
+                vec![[cx - x, cy - hh], [cx - x, cy + hh]],
+                vec![[cx + x, cy - hh], [cx + x, cy + hh]],
+            ]
+        }
+        Shape::DblCircle => {
+            let (rx, ry) = ((hw - DBLCIRCLE_GAP).max(2.0), (hh - DBLCIRCLE_GAP).max(2.0));
+            let ring = (0..=40)
+                .map(|i| {
+                    let t = 2.0 * std::f32::consts::PI * i as f32 / 40.0;
+                    [cx + rx * t.cos(), cy + ry * t.sin()]
+                })
+                .collect();
+            vec![ring]
+        }
+        Shape::Note => {
+            let f = note_fold(size);
+            vec![vec![
+                [cx + hw - f, cy - hh],
+                [cx + hw - f, cy - hh + f],
+                [cx + hw, cy - hh + f],
+            ]]
+        }
+        _ => Vec::new(),
     }
 }
 
@@ -184,13 +288,13 @@ pub fn boundary_anchor(shape: Shape, center: [f32; 2], size: [f32; 2], toward: [
     let (hw, hh) = (size[0] / 2.0, size[1] / 2.0);
     match shape {
         // Analytic fast paths.
-        Shape::Rect | Shape::Rounded | Shape::Card => {
+        Shape::Rect | Shape::Rounded | Shape::Card | Shape::Subroutine | Shape::Note => {
             let tx = if dx != 0.0 { hw / dx.abs() } else { f32::INFINITY };
             let ty = if dy != 0.0 { hh / dy.abs() } else { f32::INFINITY };
             let t = tx.min(ty);
             [center[0] + dx * t, center[1] + dy * t]
         }
-        Shape::Circle | Shape::Ellipse => {
+        Shape::Circle | Shape::Ellipse | Shape::DblCircle => {
             let k = (dx / hw).powi(2) + (dy / hh).powi(2);
             let t = 1.0 / k.sqrt();
             [center[0] + dx * t, center[1] + dy * t]
@@ -237,8 +341,12 @@ pub fn hit_test(shape: Shape, center: [f32; 2], size: [f32; 2], p: [f32; 2]) -> 
     let dy = (p[1] - center[1]).abs();
     let (hw, hh) = (size[0] / 2.0, size[1] / 2.0);
     match shape {
-        Shape::Rect | Shape::Rounded | Shape::Card => dx <= hw && dy <= hh,
-        Shape::Circle | Shape::Ellipse => (dx / hw).powi(2) + (dy / hh).powi(2) <= 1.0,
+        Shape::Rect | Shape::Rounded | Shape::Card | Shape::Subroutine | Shape::Note => {
+            dx <= hw && dy <= hh
+        }
+        Shape::Circle | Shape::Ellipse | Shape::DblCircle => {
+            (dx / hw).powi(2) + (dy / hh).powi(2) <= 1.0
+        }
         Shape::Diamond => dx / hw + dy / hh <= 1.0,
         _ => point_in_polygon(&shape_outline(shape, center, size), p),
     }

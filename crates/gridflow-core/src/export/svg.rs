@@ -64,7 +64,7 @@ pub fn to_svg(scene: &Scene) -> String {
                 let (rw, rh) = (rect.max[0] - x, rect.max[1] - y);
                 let (cx, cy) = ((rect.min[0] + rect.max[0]) / 2.0, (rect.min[1] + rect.max[1]) / 2.0);
                 match shape {
-                    Shape::Rect | Shape::Rounded => {
+                    Shape::Rect | Shape::Rounded | Shape::Subroutine => {
                         let rx = if *shape == Shape::Rounded { 10.0 } else { 0.0 };
                         let _ = writeln!(
                             out,
@@ -73,7 +73,7 @@ pub fn to_svg(scene: &Scene) -> String {
                             color(*stroke)
                         );
                     }
-                    Shape::Circle | Shape::Ellipse => {
+                    Shape::Circle | Shape::Ellipse | Shape::DblCircle => {
                         let _ = writeln!(
                             out,
                             r#"<ellipse cx="{cx}" cy="{cy}" rx="{}" ry="{}" fill="{}" stroke="{}" stroke-width="{stroke_width}"{dash}/>"#,
@@ -98,17 +98,6 @@ pub fn to_svg(scene: &Scene) -> String {
                             color(*fill),
                             color(*stroke)
                         );
-                        if *other == Shape::Cylinder {
-                            let rim = crate::geometry::cylinder_rim([cx, cy], [rw, rh]);
-                            let pts: Vec<String> =
-                                rim.iter().map(|p| format!("{},{}", p[0], p[1])).collect();
-                            let _ = writeln!(
-                                out,
-                                r#"<polyline points="{}" fill="none" stroke="{}" stroke-width="{stroke_width}"/>"#,
-                                pts.join(" "),
-                                color(*stroke)
-                            );
-                        }
                     }
                 }
             }

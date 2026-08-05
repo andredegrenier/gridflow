@@ -253,3 +253,103 @@ fn phantom_nodes_render_dashed_until_declared() {
     assert!(m.nodes["ghost"].style.dashed);
     assert!(m.nodes["a"].phantom);
 }
+
+// ---- v0.2 additions -------------------------------------------------------
+
+const GALLERY: &str = include_str!("../../../examples/shapes-gallery.gfd");
+const MERMAID_EXAMPLE: &str = include_str!("../../../examples/mermaid-onboarding.mmd");
+
+#[test]
+fn shapes_gallery_covers_every_shape_and_parses_clean() {
+    let d = doc(GALLERY);
+    let m = d.model();
+    assert!(
+        m.diagnostics.is_empty(),
+        "{:?}",
+        m.diagnostics.iter().map(|d| &d.message).collect::<Vec<_>>()
+    );
+    // Every shape in the enum appears somewhere in the gallery.
+    for (shape, kw) in Shape::ALL {
+        assert!(
+            m.nodes.values().any(|n| n.shape == *shape),
+            "gallery is missing shape `{kw}`"
+        );
+    }
+    // Icons resolved to glyphs and reach the display label.
+    let svc = &m.nodes["svc"];
+    assert_eq!(svc.style.icon.as_deref(), Some("🔒"));
+    assert!(svc.display_label().starts_with("🔒 "));
+}
+
+#[test]
+fn mermaid_example_runs_the_full_pipeline() {
+    let d = doc(MERMAID_EXAMPLE);
+    assert_eq!(d.language(), gridflow_core::document::Language::Mermaid);
+    let m = d.model();
+    let errors: Vec<_> = m
+        .diagnostics
+        .iter()
+        .filter(|d| d.severity == gridflow_core::ast::Severity::Error)
+        .collect();
+    assert!(errors.is_empty(), "{errors:?}");
+    assert!(m.nodes.len() >= 10);
+    assert_eq!(m.groups.len(), 1);
+    assert_eq!(m.nodes["db"].shape, Shape::Cylinder);
+    assert_eq!(m.nodes["active"].shape, Shape::DblCircle);
+    // classDef + class landed.
+    assert!(m.nodes["create"].style.fill.is_some());
+
+    // Layout + scene + SVG work on a mermaid-built model.
+    let mut engine = LayoutEngine::new();
+    let layout = engine.compute(m, &MonoMeasurer);
+    assert_eq!(layout.positions.len(), m.nodes.len());
+    let scene = build_scene(m, &layout, SceneStyle::default(), &MonoMeasurer);
+    let svg = to_svg(&scene);
+    assert!(svg.contains("<svg"));
+    assert!(svg.contains("users")); // node label made it to the SVG
+}
+
+#[test]
+fn mermaid_convert_to_gfd_preserves_structure() {
+    let d = doc(MERMAID_EXAMPLE);
+    let gfd = gridflow_core::mermaid::to_gfd(d.model());
+    let d2 = doc(&gfd);
+    assert_eq!(d2.language(), gridflow_core::document::Language::Gfd);
+    let errors: Vec<_> = d2
+        .model()
+        .diagnostics
+        .iter()
+        .filter(|x| x.severity == gridflow_core::ast::Severity::Error)
+        .collect();
+    assert!(errors.is_empty(), "converted GFD has errors: {errors:?}\n---\n{gfd}");
+    assert_eq!(d2.model().nodes.len(), d.model().nodes.len());
+    assert_eq!(d2.model().edges.len(), d.model().edges.len());
+    assert_eq!(d2.model().groups.len(), d.model().groups.len());
+}
+
+#[test]
+fn bt_and_rl_directions_reverse_flow() {
+    let tb = doc("dir: TB\na -> b\n");
+    let bt = doc("dir: BT\na -> b\n");
+    let mut engine = LayoutEngine::new();
+    let l_tb = engine.compute(tb.model(), &MonoMeasurer);
+    let mut engine2 = LayoutEngine::new();
+    let l_bt = engine2.compute(bt.model(), &MonoMeasurer);
+    assert!(l_tb.positions["a"][1] < l_tb.positions["b"][1], "TB: a above b");
+    assert!(l_bt.positions["a"][1] > l_bt.positions["b"][1], "BT: a below b");
+
+    let rl = doc("dir: RL\na -> b\n");
+    let mut engine3 = LayoutEngine::new();
+    let l_rl = engine3.compute(rl.model(), &MonoMeasurer);
+    assert!(l_rl.positions["a"][0] > l_rl.positions["b"][0], "RL: a right of b");
+}
+
+#[test]
+fn arrow_aliases_match_canonical_arrows() {
+    let d = doc("a --> b\nc <-- d\ne <--> f\n");
+    let m = d.model();
+    assert!(m.diagnostics.is_empty(), "{:?}", m.diagnostics);
+    assert_eq!(m.edges[0].arrow, ArrowKind::Directed);
+    assert_eq!((m.edges[1].from.as_str(), m.edges[1].to.as_str()), ("d", "c"));
+    assert_eq!(m.edges[2].arrow, ArrowKind::Bidirectional);
+}

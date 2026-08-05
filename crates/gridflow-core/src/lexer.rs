@@ -14,11 +14,15 @@ pub enum Token {
     KwRightOf,
     #[token("left-of")]
     KwLeftOf,
+    // `-->`/`<--` are accepted as aliases for `->`/`<-` (mermaid muscle memory).
     #[token("->")]
+    #[token("-->")]
     ArrowDirected,
     #[token("<-")]
+    #[token("<--")]
     ArrowReversed,
     #[token("<->")]
+    #[token("<-->")]
     ArrowBi,
     #[token("--")]
     ArrowUndirected,

@@ -17,6 +17,7 @@ pub const TOPICS: &[(&str, &str)] = &[
     ("Cookbook", include_str!("../../../docs/09-cookbook.md")),
     ("Architecture", include_str!("../../../docs/10-architecture.md")),
     ("FAQ", include_str!("../../../docs/11-faq.md")),
+    ("Mermaid", include_str!("../../../docs/12-mermaid.md")),
 ];
 
 pub struct HelpWindow {
